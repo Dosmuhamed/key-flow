@@ -1,6 +1,7 @@
 import { ArrowRightLeft, Dumbbell, Lightbulb, RotateCcw, SkipForward, Trophy } from 'lucide-react'
+import type { TFunction } from 'i18next'
 import { useEffect } from 'react'
-import { FINGER_NAMES } from '../../data/layouts'
+import { useTranslation } from 'react-i18next'
 import { displayChar, formatDuration, formatSpeed, pct, unitLabel } from '../../lib/format'
 import type { HistoryEntry } from '../../lib/storage'
 import type { Analysis } from '../../lib/stats'
@@ -24,34 +25,31 @@ interface Props {
   paused?: boolean
 }
 
-function tips(a: Analysis): string[] {
+function tips(a: Analysis, t: TFunction): string[] {
   const out: string[] = []
-  if (a.keystrokes < 10) return ['Слишком мало нажатий для советов — попробуйте пройти тест подольше.']
-  if (a.accuracy < 0.92) {
-    out.push('Точность ниже 92%. Сбавьте темп: исправление ошибок съедает больше времени, чем аккуратный набор.')
-  } else if (a.accuracy >= 0.98) {
-    out.push('Отличная точность. Можно понемногу прибавлять скорость.')
-  }
+  if (a.keystrokes < 10) return [t('tips.tooShort')]
+  if (a.accuracy < 0.92) out.push(t('tips.lowAccuracy'))
+  else if (a.accuracy >= 0.98) out.push(t('tips.highAccuracy'))
+  const fingerName = (f: number) => t(`fingers.${f}`).toLocaleLowerCase()
   const fingers = a.fingers.filter((f) => f.count >= 5 && f.finger !== 8)
   const worstFinger = [...fingers].sort((x, y) => x.accuracy - y.accuracy)[0]
   if (worstFinger && worstFinger.accuracy < 0.95) {
-    out.push(`Больше всего промахов у пальца «${FINGER_NAMES[worstFinger.finger].toLowerCase()}» — ${pct(1 - worstFinger.accuracy)} ошибок.`)
+    out.push(t('tips.worstFinger', { finger: fingerName(worstFinger.finger), rate: pct(1 - worstFinger.accuracy) }))
   }
   const slowFinger = [...fingers].sort((x, y) => y.avgMs - x.avgMs)[0]
   if (slowFinger && fingers.length > 2) {
-    out.push(`Медленнее всего работает ${FINGER_NAMES[slowFinger.finger].toLowerCase()}: в среднем ${Math.round(slowFinger.avgMs)} мс на нажатие.`)
+    out.push(t('tips.slowFinger', { finger: fingerName(slowFinger.finger), ms: Math.round(slowFinger.avgMs) }))
   }
-  if (a.consistency < 55) {
-    out.push('Темп скачет. Старайтесь печатать ровно, без рывков и пауз — ритм важнее разовых ускорений.')
-  }
+  if (a.consistency < 55) out.push(t('tips.uneven'))
   const worst = a.chars.filter((c) => c.char !== ' ' && c.errors > 0).slice(0, 3)
   if (worst.length) {
-    out.push(`Трудные буквы: ${worst.map((c) => `«${displayChar(c.char)}»`).join(', ')}. Урок «Мои ошибки» соберёт слова именно с ними.`)
+    out.push(t('tips.hardLetters', { letters: worst.map((c) => `«${displayChar(c.char)}»`).join(', ') }))
   }
   return out.slice(0, 4)
 }
 
 export function ResultsView({ run, analysis: a, modeLabel, isRecord, history, onNext, onRetry, onDrill, onClearHistory, paused }: Props) {
+  const { t } = useTranslation()
   const unit = run.settings.unit
   const otherUnit = unit === 'cpm' ? 'wpm' : 'cpm'
 
@@ -74,7 +72,7 @@ export function ResultsView({ run, analysis: a, modeLabel, isRecord, history, on
     window.scrollTo({ top: 0 })
   }, [run.id])
 
-  const advice = tips(a)
+  const advice = tips(a, t)
 
   return (
     <div className="flex flex-col gap-4">
@@ -86,7 +84,7 @@ export function ResultsView({ run, analysis: a, modeLabel, isRecord, history, on
             {isRecord && (
               <span className="flex items-center gap-1.5 rounded-full bg-accent-soft px-2.5 py-1 font-medium text-accent">
                 <Trophy className="size-3.5" />
-                Новый рекорд
+                {t('results.newRecord')}
               </span>
             )}
           </div>
@@ -97,7 +95,7 @@ export function ResultsView({ run, analysis: a, modeLabel, isRecord, history, on
             <span className="text-lg font-medium text-muted">{unitLabel(unit)}</span>
           </div>
           <div className="mt-2 text-sm text-muted">
-            {formatSpeed(a.cpm, otherUnit)} {unitLabel(otherUnit)}, без учёта ошибок {formatSpeed(a.rawCpm, unit)}
+            {t('results.secondary', { other: formatSpeed(a.cpm, otherUnit), otherUnit: unitLabel(otherUnit), raw: formatSpeed(a.rawCpm, unit) })}
           </div>
           <div className="mt-6 flex flex-wrap gap-2">
             <button
@@ -106,7 +104,7 @@ export function ResultsView({ run, analysis: a, modeLabel, isRecord, history, on
               className="flex h-11 items-center gap-2 rounded-xl bg-accent px-4 text-sm font-semibold text-accent-ink transition-transform active:scale-[0.98]"
             >
               <SkipForward className="size-4" />
-              Следующий тест
+              {t('results.next')}
             </button>
             <button
               type="button"
@@ -114,7 +112,7 @@ export function ResultsView({ run, analysis: a, modeLabel, isRecord, history, on
               className="flex h-11 items-center gap-2 rounded-xl bg-sunken px-4 text-sm font-medium text-ink hover:bg-line"
             >
               <RotateCcw className="size-4" />
-              Повторить текст
+              {t('results.retry')}
             </button>
             {onDrill && (
               <button
@@ -123,33 +121,33 @@ export function ResultsView({ run, analysis: a, modeLabel, isRecord, history, on
                 className="flex h-11 items-center gap-2 rounded-xl bg-sunken px-4 text-sm font-medium text-ink hover:bg-line"
               >
                 <Dumbbell className="size-4" />
-                Потренировать ошибки
+                {t('results.drill')}
               </button>
             )}
           </div>
           <div className="mt-3 flex gap-4 text-xs text-muted">
             <span className="flex items-center gap-1.5">
-              <Kbd>Tab</Kbd> следующий
+              <Kbd>Tab</Kbd> {t('results.nextKey')}
             </span>
             <span className="flex items-center gap-1.5">
-              <Kbd>Esc</Kbd> повторить
+              <Kbd>Esc</Kbd> {t('results.retryKey')}
             </span>
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <Metric label="Точность" value={pct(a.accuracy, 1)} tone={a.accuracy >= 0.95 ? 'good' : a.accuracy < 0.9 ? 'bad' : undefined} />
-          <Metric label="Время" value={formatDuration(a.durationMs)} />
-          <Metric label="Ритмичность" value={pct(a.consistency / 100)} hint="Насколько ровным был темп от секунды к секунде" />
-          <Metric label="Верных символов" value={String(a.correctChars)} tone="good" />
-          <Metric label="Ошибочных нажатий" value={String(a.wrongKeystrokes)} tone={a.wrongKeystrokes ? 'bad' : undefined} />
+           <Metric label={t('results.accuracy')} value={pct(a.accuracy, 1)} tone={a.accuracy >= 0.95 ? 'good' : a.accuracy < 0.9 ? 'bad' : undefined} />
+          <Metric label={t('results.time')} value={formatDuration(a.durationMs)} />
+          <Metric label={t('results.consistency')} value={pct(a.consistency / 100)} hint={t('results.consistencyHint')} />
+          <Metric label={t('results.correctChars')} value={String(a.correctChars)} tone="good" />
+          <Metric label={t('results.wrongKeys')} value={String(a.wrongKeystrokes)} tone={a.wrongKeystrokes ? 'bad' : undefined} />
           <Metric
-            label={run.settings.strict ? 'Всего нажатий' : 'Исправлений'}
+            label={run.settings.strict ? t('results.totalKeys') : t('results.corrections')}
             value={String(run.settings.strict ? a.keystrokes : a.backspaces)}
-            hint={run.settings.strict ? undefined : 'Сколько раз нажат Backspace'}
+            hint={run.settings.strict ? undefined : t('results.correctionsHint')}
           />
-          {a.incorrectChars > 0 && <Metric label="Осталось с ошибкой" value={String(a.incorrectChars)} tone="bad" />}
-          {a.missedChars > 0 && <Metric label="Пропущено" value={String(a.missedChars)} />}
+          {a.incorrectChars > 0 && <Metric label={t('results.leftWrong')} value={String(a.incorrectChars)} tone="bad" />}
+          {a.missedChars > 0 && <Metric label={t('results.missed')} value={String(a.missedChars)} />}
         </div>
       </section>
 
@@ -164,16 +162,16 @@ export function ResultsView({ run, analysis: a, modeLabel, isRecord, history, on
         </section>
       )}
 
-      <Panel title="Скорость по секундам">
+      <Panel title={t('results.speedBySecond')}>
         <SpeedChart timeline={a.timeline} unit={unit} />
       </Panel>
 
       <Panel
-        title="Повтор прохождения"
+        title={t('results.replay')}
         aside={
           <span className="flex items-center gap-1.5 text-xs text-muted">
             <ArrowRightLeft className="size-3.5" />
-            перетащите ползунок, чтобы перемотать
+            {t('results.replayHint')}
           </span>
         }
       >
@@ -192,7 +190,7 @@ export function ResultsView({ run, analysis: a, modeLabel, isRecord, history, on
         <WordsPanel analysis={a} unit={unit} />
       </div>
 
-      <Panel title="История">
+      <Panel title={t('history.title')}>
         <HistoryPanel history={history} unit={unit} highlightId={run.id} onClear={onClearHistory} limit={8} />
       </Panel>
     </div>

@@ -1,7 +1,8 @@
 import { AlertTriangle, MousePointerClick, RotateCcw } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { LANGUAGE_BY_ID } from '../data/languages'
-import { FINGER_NAMES, KEY_BY_CODE, LAYOUTS, keysForChar, type Finger } from '../data/layouts'
+import { KEY_BY_CODE, LAYOUTS, keysForChar, type Finger } from '../data/layouts'
 import type { useTypingTest } from '../hooks/useTypingTest'
 import type { Settings } from '../lib/types'
 import { formatSpeed, unitLabel } from '../lib/format'
@@ -19,12 +20,8 @@ interface Props {
   paused: boolean
 }
 
-function charName(ch: string) {
-  if (ch === ' ') return 'пробел'
-  return `«${ch}»`
-}
-
 export function TypingScreen({ settings, test, paused }: Props) {
+  const { t } = useTranslation()
   const { target, typed, status, elapsed, errorPositions, flash, wrongLayout, stats, handleKey, reset, title } = test
   const lang = LANGUAGE_BY_ID[settings.language]
   const layout = LAYOUTS[lang.layoutId]
@@ -134,7 +131,7 @@ export function TypingScreen({ settings, test, paused }: Props) {
         <div className="flex items-end gap-6 sm:gap-8">
           <div>
             <div className="font-mono text-4xl leading-none font-semibold text-accent tabular-nums sm:text-5xl">{progressLabel}</div>
-            <div className="mt-1.5 text-xs text-muted">{settings.mode === 'time' ? 'секунд осталось' : settings.mode === 'words' ? 'слов набрано' : 'пройдено'}</div>
+            <div className="mt-1.5 text-xs text-muted">{settings.mode === 'time' ? t('typing.secondsLeft') : settings.mode === 'words' ? t('typing.wordsTyped') : t('typing.done')}</div>
           </div>
           <div className={`transition-opacity ${status === 'running' ? 'opacity-100' : 'opacity-40'}`}>
             <div className="font-mono text-2xl leading-none font-medium tabular-nums">{formatSpeed(cpm, settings.unit)}</div>
@@ -142,17 +139,17 @@ export function TypingScreen({ settings, test, paused }: Props) {
           </div>
           <div className={`transition-opacity ${status === 'running' ? 'opacity-100' : 'opacity-40'}`}>
             <div className="font-mono text-2xl leading-none font-medium tabular-nums">{Math.round(accuracy * 100)}%</div>
-            <div className="mt-1.5 text-xs text-muted">точность</div>
+            <div className="mt-1.5 text-xs text-muted">{t('typing.accuracy')}</div>
           </div>
         </div>
         <button
           type="button"
           onClick={() => reset(false)}
           className="flex h-10 items-center gap-2 rounded-xl px-3 text-sm font-medium text-muted transition-colors hover:bg-sunken hover:text-ink"
-          title="Новый текст (Tab)"
+          title={t('typing.newTextTitle')}
         >
           <RotateCcw className="size-4" />
-          <span className="hidden sm:inline">Заново</span>
+          <span className="hidden sm:inline">{t('typing.restart')}</span>
         </button>
       </div>
 
@@ -178,7 +175,7 @@ export function TypingScreen({ settings, test, paused }: Props) {
           <div className="absolute inset-0 grid place-items-center rounded-3xl text-sm font-medium text-ink">
             <span className="flex items-center gap-2 rounded-xl bg-surface/90 px-4 py-2">
               <MousePointerClick className="size-4" />
-              Нажмите сюда, чтобы продолжить
+              {t('typing.clickToContinue')}
             </span>
           </div>
         )}
@@ -188,15 +185,15 @@ export function TypingScreen({ settings, test, paused }: Props) {
         {wrongLayout ? (
           <span className="flex items-center gap-2 font-medium text-warn">
             <AlertTriangle className="size-4" />
-            Похоже, включена другая раскладка. Переключите на «{layout.name}».
+            {t('typing.wrongLayout', { layout: layout.name })}
           </span>
         ) : status === 'idle' ? (
-          <span className="text-muted">Начните печатать — таймер запустится с первой клавиши</span>
+          <span className="text-muted">{t('typing.startHint')}</span>
         ) : nextChar ? (
           <span className="text-muted">
-            {charName(nextChar)}
-            {hintFinger !== undefined && <> — {FINGER_NAMES[hintFinger].toLowerCase()}</>}
-            {needsShift && <>, с Shift</>}
+            {nextChar === ' ' ? t('typing.space') : `«${nextChar}»`}
+            {hintFinger !== undefined && <> — {t(`fingers.${hintFinger}`).toLocaleLowerCase()}</>}
+            {needsShift && t('typing.withShift')}
           </span>
         ) : null}
       </div>
@@ -209,14 +206,14 @@ export function TypingScreen({ settings, test, paused }: Props) {
 
       <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted">
         <span className="flex items-center gap-1.5">
-          <Kbd>Tab</Kbd> новый текст
+          <Kbd>Tab</Kbd> {t('typing.newText')}
         </span>
         <span className="flex items-center gap-1.5">
-          <Kbd>Esc</Kbd> начать этот текст заново
+          <Kbd>Esc</Kbd> {t('typing.restartText')}
         </span>
         {!settings.strict && (
           <span className="flex items-center gap-1.5">
-            <Kbd>{OS === 'mac' ? '⌥ option' : 'Ctrl'}</Kbd>+<Kbd>{OS === 'mac' ? '⌫ delete' : 'Backspace'}</Kbd> стереть слово
+            <Kbd>{OS === 'mac' ? '⌥ option' : 'Ctrl'}</Kbd>+<Kbd>{OS === 'mac' ? '⌫ delete' : 'Backspace'}</Kbd> {t('typing.deleteWord')}
           </span>
         )}
       </div>

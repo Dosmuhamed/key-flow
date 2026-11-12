@@ -72,10 +72,10 @@ export function useTypingTest(settings: Settings, onFinish: (run: TestRun) => vo
   }, [])
 
   // regenerate text whenever the test-shaping settings change
-  const { language, mode, time, words, lesson, punctuation, numbers } = settings
+  const { language, mode, time, words, lesson, punctuation, numbers, difficulty, textId } = settings
   useEffect(() => {
     reset()
-  }, [language, mode, time, words, lesson, punctuation, numbers, reset])
+  }, [language, mode, time, words, lesson, punctuation, numbers, difficulty, textId, reset])
 
   const finish = useCallback(() => {
     if (statusRef.current !== 'running') return

@@ -1,0 +1,14 @@
+export const deHard = `Geschwindigkeitsbegrenzung Rechtsschutzversicherung Verantwortung
+Möglichkeit Gleichberechtigung Sehenswürdigkeit Zusammenarbeit
+Entschuldigung Herausforderung Unabhängigkeit Wahrscheinlichkeit
+Eichhörnchen Streichholzschächtelchen Quadratmeter Rhabarber
+Schmetterling Zwetschge Pfannkuchen Kühlschrank Glühbirne
+Bürgersteig Fußgängerzone Größenordnung Persönlichkeit Öffentlichkeit
+Überraschung Ausnahmezustand Weltanschauung Gemütlichkeit Fernweh
+Schadenfreude Zeitgeist Kindergarten Handschuh Flugzeug Rücksicht
+Zuverlässigkeit Nachhaltigkeit Gesellschaft Mannschaft Wissenschaft
+Erfahrungen Schwierigkeit verständlich außergewöhnlich gleichzeitig
+selbstverständlich ungewöhnlich übermäßig zwölftausend Äquivalent
+Phänomen Rhythmus Psychologie Philosophie Physiotherapie
+Xylophon Yachthafen Zylinder Quecksilber Schwimmbäder
+`.split(/\s+/).filter(Boolean)

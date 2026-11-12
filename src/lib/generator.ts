@@ -1,4 +1,4 @@
-import { LANGUAGE_BY_ID } from '../data/languages'
+import { HARD_WORDS, LANGUAGE_BY_ID, type LanguagePack } from '../data/languages'
 import { BOTTOM_ROW_CODES, HOME_ROW_CODES, LAYOUTS, TOP_ROW_CODES, lettersOnRows } from '../data/layouts'
 import type { LessonId, Settings } from './types'
 
@@ -27,7 +27,30 @@ function pickWords(pool: string[], n: number): string[] {
   return out
 }
 
-function decorate(words: string[], settings: Settings): string[] {
+/** Word pool for a difficulty level. */
+export function wordPool(lang: LanguagePack, settings: Settings): string[] {
+  const common = lang.words
+  switch (settings.difficulty) {
+    case 'easy':
+      return common.filter((w) => Array.from(w).length <= 5)
+    case 'hard': {
+      // long and rare words, diluted with the longer half of the common list
+      const longer = common.filter((w) => Array.from(w).length >= 6)
+      return [...HARD_WORDS[lang.id], ...HARD_WORDS[lang.id], ...longer]
+    }
+    case 'expert':
+      return HARD_WORDS[lang.id]
+    default:
+      return common
+  }
+}
+
+/** Expert difficulty always adds capitals, punctuation and digits. */
+const effective = (s: Settings): Settings =>
+  s.difficulty === 'expert' ? { ...s, punctuation: true, numbers: true } : s
+
+function decorate(words: string[], rawSettings: Settings): string[] {
+  const settings = effective(rawSettings)
   const { punctuation, numbers, language } = settings
   const noDigits = language === 'kk'
   let sentenceStart = true
@@ -37,7 +60,7 @@ function decorate(words: string[], settings: Settings): string[] {
     if (numbers && !noDigits && Math.random() < 0.12) {
       w = String(Math.floor(Math.random() * (Math.random() < 0.5 ? 100 : 2100)))
     }
-    if (!punctuation) return w.toLocaleLowerCase()
+    if (!punctuation) return settings.difficulty === 'expert' || settings.difficulty === 'hard' ? w : w.toLocaleLowerCase()
     w = sentenceStart ? capitalize(w) : w.toLocaleLowerCase()
     sentenceStart = false
     const r = Math.random()
@@ -104,11 +127,11 @@ export function generate(settings: Settings, weakLetters: string[] = []): Genera
   const lang = LANGUAGE_BY_ID[settings.language]
   switch (settings.mode) {
     case 'time':
-      return { text: decorate(pickWords(lang.words, 120), settings).join(' ') }
+      return { text: decorate(pickWords(wordPool(lang, settings), 120), settings).join(' ') }
     case 'words':
-      return { text: decorate(pickWords(lang.words, settings.words), settings).join(' ') }
+      return { text: decorate(pickWords(wordPool(lang, settings), settings.words), settings).join(' ') }
     case 'text': {
-      const t = rand(lang.texts)
+      const t = lang.texts[settings.textId] ?? rand(lang.texts)
       return { text: t.body, title: t.title }
     }
     case 'lesson': {
@@ -126,5 +149,5 @@ export function generate(settings: Settings, weakLetters: string[] = []): Genera
 /** More words for the timed mode, appended when the user gets close to the end. */
 export function moreWords(settings: Settings, n = 60): string {
   const lang = LANGUAGE_BY_ID[settings.language]
-  return decorate(pickWords(lang.words, n), { ...settings }).join(' ')
+  return decorate(pickWords(wordPool(lang, settings), n), settings).join(' ')
 }

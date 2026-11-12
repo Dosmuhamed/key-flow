@@ -4,18 +4,27 @@ export type Mode = 'time' | 'words' | 'text' | 'lesson'
 
 export type LessonId = 'home' | 'top' | 'bottom' | 'all' | 'weak'
 
+/**
+ * Word difficulty. Typing sites usually grade by vocabulary size (200 / 1k / 5k / 10k most
+ * frequent words); without a backend we grade by frequency, word length and extra symbols.
+ */
+export type Difficulty = 'easy' | 'normal' | 'hard' | 'expert'
+export const DIFFICULTIES: Difficulty[] = ['easy', 'normal', 'hard', 'expert']
+
 export interface Settings {
   language: LanguageId
   mode: Mode
   time: number
   words: number
   lesson: LessonId
+  difficulty: Difficulty
+  /** index of the passage in text mode, -1 = random */
+  textId: number
   punctuation: boolean
   numbers: boolean
   /** do not advance on a wrong key */
   strict: boolean
   showKeyboard: boolean
-  theme: 'light' | 'dark'
   /** speed unit: words per minute or characters per minute */
   unit: 'wpm' | 'cpm'
 }
@@ -26,11 +35,12 @@ export const DEFAULT_SETTINGS: Settings = {
   time: 30,
   words: 25,
   lesson: 'home',
+  difficulty: 'normal',
+  textId: -1,
   punctuation: false,
   numbers: false,
   strict: false,
   showKeyboard: true,
-  theme: 'light',
   unit: 'cpm',
 }
 

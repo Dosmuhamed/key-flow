@@ -1,4 +1,5 @@
 import type { LanguageId } from '../data/languages'
+import type { ModeParams } from './modeLabel'
 import type { Analysis } from './stats'
 import { DEFAULT_SETTINGS, type Mode, type Settings } from './types'
 
@@ -24,9 +25,8 @@ function write(key: string, value: unknown) {
 }
 
 export function loadSettings(): Settings {
-  const stored = read<Partial<Settings>>(SETTINGS_KEY, {})
-  const prefersDark = typeof matchMedia !== 'undefined' && matchMedia('(prefers-color-scheme: dark)').matches
-  return { ...DEFAULT_SETTINGS, theme: prefersDark ? 'dark' : 'light', ...stored }
+  const { theme: _legacyTheme, ...stored } = read<Partial<Settings> & { theme?: unknown }>(SETTINGS_KEY, {})
+  return { ...DEFAULT_SETTINGS, ...stored }
 }
 
 export function saveSettings(s: Settings) {
@@ -38,7 +38,11 @@ export interface HistoryEntry {
   date: number
   language: LanguageId
   mode: Mode
-  modeLabel: string
+  /** label of entries saved before mode keys existed */
+  modeLabel?: string
+  /** language-independent id of the mode, see modeKey() */
+  modeKey?: string
+  params?: ModeParams
   cpm: number
   wpm: number
   accuracy: number

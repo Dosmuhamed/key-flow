@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useLayoutEffect, useRef, useState, type PointerEvent } from 'react'
 import { speedValue, unitLabel } from '../../lib/format'
 import type { TimelinePoint } from '../../lib/stats'
@@ -30,6 +31,7 @@ function niceMax(v: number) {
 }
 
 export function SpeedChart({ timeline, unit }: Props) {
+  const { t } = useTranslation()
   const [ref, width] = useWidth<HTMLDivElement>()
   const [hover, setHover] = useState<number | null>(null)
   const height = 240
@@ -69,7 +71,7 @@ export function SpeedChart({ timeline, unit }: Props) {
         onPointerMove={onMove}
         onPointerLeave={() => setHover(null)}
         role="img"
-        aria-label="График скорости по секундам"
+        aria-label={t('chart.aria')}
       >
         <defs>
           <linearGradient id="kf-area" x1="0" x2="0" y1="0" y2="1">
@@ -114,17 +116,17 @@ export function SpeedChart({ timeline, unit }: Props) {
           className="pointer-events-none absolute top-2 z-10 min-w-36 rounded-xl bg-ink px-3 py-2 text-xs text-page shadow-lg"
           style={{ left: Math.min(Math.max(x(hover) - 72, 0), w - 150) }}
         >
-          <div className="mb-1 font-semibold">{hp.sec}-я секунда</div>
+          <div className="mb-1 font-semibold">{t('chart.second', { n: hp.sec })}</div>
           <div className="flex justify-between gap-3">
-            <span className="opacity-70">Скорость</span>
+            <span className="opacity-70">{t('chart.speed')}</span>
             <span className="font-mono">{Math.round(hp.speed)}</span>
           </div>
           <div className="flex justify-between gap-3">
-            <span className="opacity-70">Темп в моменте</span>
+            <span className="opacity-70">{t('chart.raw')}</span>
             <span className="font-mono">{Math.round(hp.rawV)}</span>
           </div>
           <div className="flex justify-between gap-3">
-            <span className="opacity-70">Ошибки</span>
+            <span className="opacity-70">{t('chart.errors')}</span>
             <span className="font-mono">{hp.errors}</span>
           </div>
         </div>
@@ -132,15 +134,15 @@ export function SpeedChart({ timeline, unit }: Props) {
       <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 pl-11 text-xs text-muted">
         <span className="flex items-center gap-2">
           <span className="h-[3px] w-5 rounded-full bg-accent" />
-          Средняя скорость, {unitLabel(unit)}
+          {t('chart.avgSpeed', { unit: unitLabel(unit) })}
         </span>
         <span className="flex items-center gap-2">
           <span className="h-0 w-5 border-t-2 border-dashed border-faint" />
-          Темп в моменте
+          {t('chart.raw')}
         </span>
         <span className="flex items-center gap-2">
           <span className="size-2.5 rounded-full bg-bad" />
-          Ошибки
+          {t('chart.errors')}
         </span>
       </div>
     </div>

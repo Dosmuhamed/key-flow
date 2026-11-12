@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Pause, Play, RotateCcw } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { LANGUAGE_BY_ID } from '../../data/languages'
@@ -11,6 +12,7 @@ import { TextView } from '../TextView'
 const SPEEDS = [0.5, 1, 2, 4]
 
 export function Replay({ run }: { run: TestRun }) {
+  const { t: tr } = useTranslation()
   const [t, setT] = useState(0)
   const [playing, setPlaying] = useState(false)
   const [rate, setRate] = useState(1)
@@ -92,7 +94,7 @@ export function Replay({ run }: { run: TestRun }) {
           type="button"
           onClick={toggle}
           className="grid size-11 place-items-center rounded-full bg-accent text-accent-ink transition-transform active:scale-95"
-          aria-label={playing ? 'Пауза' : 'Воспроизвести'}
+          aria-label={playing ? tr('replay.pause') : tr('replay.play')}
         >
           {playing ? <Pause className="size-5" /> : <Play className="size-5 translate-x-[1px]" />}
         </button>
@@ -103,8 +105,8 @@ export function Replay({ run }: { run: TestRun }) {
             setPlaying(true)
           }}
           className="grid size-9 place-items-center rounded-full text-muted hover:bg-sunken hover:text-ink"
-          aria-label="С начала"
-          title="С начала"
+          aria-label={tr('replay.fromStart')}
+          title={tr('replay.fromStart')}
         >
           <RotateCcw className="size-4" />
         </button>
@@ -119,10 +121,10 @@ export function Replay({ run }: { run: TestRun }) {
             setT(Number(e.target.value))
           }}
           className="h-2 min-w-40 flex-1 cursor-pointer accent-[var(--kf-accent)]"
-          aria-label="Позиция воспроизведения"
+          aria-label={tr('replay.position')}
         />
         <span className="w-28 text-right font-mono text-sm whitespace-nowrap text-muted tabular-nums">
-          {(t / 1000).toFixed(1)} / {(duration / 1000).toFixed(1)} с
+          {(t / 1000).toFixed(1)} / {(duration / 1000).toFixed(1)} {tr('replay.sec')}
         </span>
         <div className="flex gap-0.5 rounded-lg bg-sunken p-0.5">
           {SPEEDS.map((s) => (
@@ -146,11 +148,11 @@ export function Replay({ run }: { run: TestRun }) {
           </div>
           <div>
             <div className="font-mono text-xl font-medium tabular-nums">{keystrokes}</div>
-            <div className="text-xs text-muted">нажатий</div>
+            <div className="text-xs text-muted">{tr('replay.keystrokes')}</div>
           </div>
           <div>
             <div className="font-mono text-xl font-medium text-bad tabular-nums">{wrong}</div>
-            <div className="text-xs text-muted">ошибок</div>
+            <div className="text-xs text-muted">{tr('replay.errors')}</div>
           </div>
         </div>
         <Keyboard layout={layout} pressed={pressed} className="max-w-[520px]" />

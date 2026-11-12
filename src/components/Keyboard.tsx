@@ -1,5 +1,8 @@
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { KEY_ROWS, keysForChar, shiftSideFor, type KeyDef, type Layout } from '../data/layouts'
+import { useAppearance } from '../hooks/useAppearance'
+import { COLORWAYS, type KeyStyle } from '../lib/appearance'
 import { OS } from '../lib/platform'
 
 export interface HeatCell {
@@ -76,12 +79,16 @@ function KeyCap({
   target,
   state,
   heat,
+  keyStyle,
+  zones,
 }: {
   g: KeyGeo
   layout: Layout
   target: boolean
   state?: 'ok' | 'bad' | 'neutral'
   heat?: HeatCell
+  keyStyle: KeyStyle
+  zones: boolean
 }) {
   const { key: k, x, y, w, h } = g
   const chars = layout.chars[k.code]
@@ -91,7 +98,11 @@ function KeyCap({
 
   let face = isMod ? 'var(--kb-mod-face)' : 'var(--kb-face)'
   let skirt = isMod ? 'var(--kb-mod-skirt)' : 'var(--kb-skirt)'
-  let legend = isMod ? 'var(--kb-mod-legend)' : 'var(--kb-legend)'
+  let legend = isMod && keyStyle !== 'outline' ? 'var(--kb-mod-legend)' : 'var(--kb-legend)'
+
+  if (zones && !isMod && !isSpace) {
+    face = `color-mix(in oklab, var(--f${k.finger}) 45%, var(--kb-face))`
+  }
 
   if (heat && heat.value > 0) {
     face = `color-mix(in oklab, var(--kf-bad) ${Math.round(18 + heat.value * 70)}%, var(--kb-face))`
@@ -165,11 +176,38 @@ function KeyCap({
     }
   }
 
+  const highlighted = target || state === 'bad' || (heat && heat.value > 0)
+  let body: ReactNode
+  if (keyStyle === 'outline') {
+    body = (
+      <rect
+        x={x + 1}
+        y={y + 1}
+        width={w - 2}
+        height={h - 2}
+        rx={rx + 1}
+        fill={highlighted || zones ? face : 'transparent'}
+        stroke={highlighted ? face : 'var(--kb-legend)'}
+        strokeOpacity={highlighted ? 1 : 0.35}
+        strokeWidth="1.5"
+        style={{ transition: 'fill 120ms ease' }}
+      />
+    )
+  } else if (keyStyle === 'flat') {
+    body = <rect x={x} y={y} width={w} height={h} rx={rx + 1} fill={face} stroke={skirt} strokeWidth="1" style={{ transition: 'fill 120ms ease' }} />
+  } else {
+    body = (
+      <>
+        <rect x={x} y={y} width={w} height={h} rx={rx + 1.5} fill={skirt} style={{ transition: 'fill 120ms ease' }} />
+        <rect x={faceX} y={faceY} width={faceW} height={down ? faceH + 2 : faceH} rx={rx} fill={face} style={{ transition: 'fill 120ms ease' }} />
+        {!isArrow && <rect x={faceX + 4} y={faceY + 1} width={faceW - 8} height="1.5" rx="0.75" fill="#fff" style={{ opacity: 'var(--kb-gloss)' }} />}
+      </>
+    )
+  }
+
   return (
-    <g style={{ transform: `translateY(${down ? 2.5 : 0}px)`, transition: 'transform 70ms ease' }}>
-      <rect x={x} y={y} width={w} height={h} rx={rx + 1.5} fill={skirt} style={{ transition: 'fill 120ms ease' }} />
-      <rect x={faceX} y={faceY} width={faceW} height={down ? faceH + 2 : faceH} rx={rx} fill={face} style={{ transition: 'fill 120ms ease' }} />
-      {!isArrow && <rect x={faceX + 4} y={faceY + 1} width={faceW - 8} height="1.5" rx="0.75" fill="#fff" style={{ opacity: 'var(--kb-gloss)' }} />}
+    <g style={{ transform: `translateY(${down ? (keyStyle === 'sculpted' ? 2.5 : 1) : 0}px)`, opacity: down && keyStyle !== 'sculpted' ? 0.75 : 1, transition: 'transform 70ms ease, opacity 70ms ease' }}>
+      {body}
       {legends}
       {k.bump && <rect x={faceX + faceW / 2 - 6} y={faceY + faceH - 6} width="12" height="2" rx="1" fill={legend} opacity="0.5" />}
       {heat && heat.value >= 0 && heat.label && (
@@ -184,15 +222,20 @@ function KeyCap({
 /* ---------- keyboard ---------- */
 
 export function Keyboard({ layout, nextChar, pressed = {}, heat, className = '' }: Props) {
-  const targets = heat ? new Set<string>() : targetCodes(layout, nextChar)
+  const { t } = useTranslation()
+  const appearance = useAppearance()
+  const targets = heat || !appearance.highlightNext ? new Set<string>() : targetCodes(layout, nextChar)
+  const outline = appearance.keyStyle === 'outline'
+  // outline keys have no body of their own, so they always follow the site theme
+  const colorway = appearance.colorway === 'auto' || outline ? undefined : COLORWAYS[appearance.colorway]
 
   return (
     <svg
       viewBox={`0 0 ${KB_W} ${KB_H}`}
       className={`block h-auto w-full select-none ${className}`}
-      style={{ fontFamily: 'var(--font-sans)' }}
+      style={{ fontFamily: 'var(--font-sans)', ...(colorway as CSSProperties) }}
       role="img"
-      aria-label={nextChar ? `Клавиатура, следующая клавиша: ${nextChar === ' ' ? 'пробел' : nextChar}` : 'Клавиатура'}
+      aria-label={nextChar ? t('keyboard.next', { key: nextChar === ' ' ? t('typing.space') : nextChar }) : t('keyboard.label')}
     >
       <defs>
         <linearGradient id="kf-case" x1="0" x2="0" y1="0" y2="1">
@@ -201,8 +244,19 @@ export function Keyboard({ layout, nextChar, pressed = {}, heat, className = '' 
         </linearGradient>
       </defs>
 
-      <rect x="0.5" y="0.5" width={KB_W - 1} height={KB_H - 1} rx="20" fill="url(#kf-case)" stroke="var(--kb-case-edge)" />
-      <rect x={PAD - 5} y={PAD - 5} width={KB_W - 2 * PAD + 10} height={KB_H - 2 * PAD + 10} rx="11" fill="var(--kb-plate)" />
+      {!outline && (
+        <>
+          <rect x="0.5" y="0.5" width={KB_W - 1} height={KB_H - 1} rx="20" fill="url(#kf-case)" stroke="var(--kb-case-edge)" />
+          <rect
+            x={PAD - 5}
+            y={PAD - 5}
+            width={KB_W - 2 * PAD + 10}
+            height={KB_H - 2 * PAD + 10}
+            rx="11"
+            fill={appearance.keyStyle === 'flat' ? 'var(--kb-case-bottom)' : 'var(--kb-plate)'}
+          />
+        </>
+      )}
 
       {GEO.map((g) => (
         <KeyCap
@@ -212,6 +266,8 @@ export function Keyboard({ layout, nextChar, pressed = {}, heat, className = '' 
           target={targets.has(g.key.code)}
           state={pressed[g.key.code]}
           heat={heat ? (heat[g.key.code] ?? { value: -1 }) : undefined}
+          keyStyle={appearance.keyStyle}
+          zones={appearance.fingerZones && !heat}
         />
       ))}
     </svg>

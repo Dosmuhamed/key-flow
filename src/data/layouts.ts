@@ -2,30 +2,6 @@ import { OS, type Os } from '../lib/platform'
 
 export type Finger = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
 
-export const FINGER_NAMES: Record<Finger, string> = {
-  0: 'Левый мизинец',
-  1: 'Левый безымянный',
-  2: 'Левый средний',
-  3: 'Левый указательный',
-  4: 'Правый указательный',
-  5: 'Правый средний',
-  6: 'Правый безымянный',
-  7: 'Правый мизинец',
-  8: 'Большие пальцы',
-}
-
-export const FINGER_SHORT: Record<Finger, string> = {
-  0: 'Мизинец',
-  1: 'Безымянный',
-  2: 'Средний',
-  3: 'Указательный',
-  4: 'Указательный',
-  5: 'Средний',
-  6: 'Безымянный',
-  7: 'Мизинец',
-  8: 'Большой',
-}
-
 export interface KeyDef {
   code: string
   finger: Finger

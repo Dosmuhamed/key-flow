@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Laptop } from 'lucide-react'
 import { useSyncExternalStore, type ReactNode } from 'react'
 
@@ -14,6 +15,7 @@ const getSnapshot = () => window.matchMedia(QUERY).matches
 
 export function MobileGate({ children }: { children: ReactNode }) {
   const blocked = useSyncExternalStore(subscribe, getSnapshot, () => false)
+  const { t } = useTranslation()
   if (!blocked) return children
 
   return (
@@ -23,13 +25,13 @@ export function MobileGate({ children }: { children: ReactNode }) {
           <path d="M8 5v12M8 11.5 15 5M10.5 10l5.5 7" />
         </svg>
       </span>
-      <h1 className="max-w-xs text-2xl font-bold tracking-tight text-ink">Откройте KeyFlow на компьютере</h1>
+      <h1 className="max-w-xs text-2xl font-bold tracking-tight text-ink">{t('mobile.title')}</h1>
       <p className="mt-3 max-w-xs text-base leading-relaxed text-muted">
-        Слепой печати учатся на настоящей клавиатуре, поэтому тренажёр работает только на ноутбуке или ПК.
+        {t('mobile.body')}
       </p>
       <div className="mt-8 flex items-center gap-2 rounded-xl bg-sunken px-4 py-3 text-sm text-muted">
         <Laptop className="size-4 shrink-0" />
-        Нужен экран шире 768 пикселей и физическая клавиатура
+        {t('mobile.need')}
       </div>
     </div>
   )

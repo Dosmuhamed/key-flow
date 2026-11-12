@@ -1,3 +1,6 @@
+import { useTranslation } from 'react-i18next'
+import { intlLocale } from '../i18n'
+import { modeLabel } from '../lib/modeLabel'
 import { Trash2 } from 'lucide-react'
 import { LANGUAGE_BY_ID } from '../data/languages'
 import { formatDuration, formatSpeed, pct, unitLabel } from '../lib/format'
@@ -30,11 +33,12 @@ function Sparkline({ values, highlight }: { values: number[]; highlight?: number
   )
 }
 
-const dateFmt = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 
 export function HistoryPanel({ history, unit, onClear, highlightId, limit = 12 }: Props) {
+  const { t } = useTranslation()
+  const dateFmt = new Intl.DateTimeFormat(intlLocale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
   if (history.length === 0) {
-    return <p className="text-sm text-muted">Здесь появятся ваши результаты после первого теста.</p>
+    return <p className="text-sm text-muted">{t('history.empty')}</p>
   }
   const recent = history.slice(0, 30).reverse()
   const best = history.reduce((a, b) => (b.cpm > a.cpm ? b : a))
@@ -47,15 +51,15 @@ export function HistoryPanel({ history, unit, onClear, highlightId, limit = 12 }
       <div className="grid grid-cols-3 gap-3">
         <div className="rounded-xl bg-sunken/70 p-3">
           <div className="font-mono text-xl font-medium">{formatSpeed(best.cpm, unit)}</div>
-          <div className="text-xs text-muted">рекорд, {unitLabel(unit)}</div>
+          <div className="text-xs text-muted">{t('history.best', { unit: unitLabel(unit) })}</div>
         </div>
         <div className="rounded-xl bg-sunken/70 p-3">
           <div className="font-mono text-xl font-medium">{formatSpeed(avg, unit)}</div>
-          <div className="text-xs text-muted">в среднем за 10</div>
+          <div className="text-xs text-muted">{t('history.avg10')}</div>
         </div>
         <div className="rounded-xl bg-sunken/70 p-3">
           <div className="font-mono text-xl font-medium">{pct(avgAcc)}</div>
-          <div className="text-xs text-muted">точность за 10</div>
+          <div className="text-xs text-muted">{t('history.acc10')}</div>
         </div>
       </div>
       <div className="mt-3">
@@ -65,11 +69,11 @@ export function HistoryPanel({ history, unit, onClear, highlightId, limit = 12 }
         <table className="w-full min-w-[30rem] text-sm">
           <thead>
             <tr className="text-left text-xs text-muted">
-              <th className="py-2 font-medium">Когда</th>
-              <th className="py-2 font-medium">Режим</th>
-              <th className="py-2 text-right font-medium">Скорость</th>
-              <th className="py-2 text-right font-medium">Точность</th>
-              <th className="py-2 text-right font-medium">Время</th>
+              <th className="py-2 font-medium">{t('history.when')}</th>
+              <th className="py-2 font-medium">{t('history.mode')}</th>
+              <th className="py-2 text-right font-medium">{t('history.speed')}</th>
+              <th className="py-2 text-right font-medium">{t('history.accuracy')}</th>
+              <th className="py-2 text-right font-medium">{t('history.time')}</th>
             </tr>
           </thead>
           <tbody>
@@ -80,7 +84,7 @@ export function HistoryPanel({ history, unit, onClear, highlightId, limit = 12 }
                   <span className="mr-1.5 rounded-md bg-sunken px-1.5 py-0.5 font-mono text-[11px] text-muted">
                     {LANGUAGE_BY_ID[h.language]?.short}
                   </span>
-                  {h.modeLabel}
+                  {h.params ? modeLabel(h.params) : h.modeLabel}
                 </td>
                 <td className="py-2 text-right font-mono">{formatSpeed(h.cpm, unit)}</td>
                 <td className="py-2 text-right font-mono">{pct(h.accuracy)}</td>
@@ -97,7 +101,7 @@ export function HistoryPanel({ history, unit, onClear, highlightId, limit = 12 }
           className="mt-4 flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-muted transition-colors hover:bg-bad-soft hover:text-bad"
         >
           <Trash2 className="size-4" />
-          Очистить историю
+          {t('history.clear')}
         </button>
       )}
     </div>

@@ -1,4 +1,6 @@
-import { memo, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useAppearance } from '../hooks/useAppearance'
+import { TYPE_SIZES } from '../lib/appearance'
 
 interface Props {
   target: string
@@ -73,14 +75,24 @@ export function TextView({
   className = '',
   size = 'lg',
 }: Props) {
+  const appearance = useAppearance()
   const words = useMemo(() => splitWords(target), [target])
   const refs = useRef<(HTMLSpanElement | null)[]>([])
-  const innerRef = useRef<HTMLDivElement>(null)
-  const [caret, setCaret] = useState({ left: 0, top: 0, height: 0 })
+  const [caret, setCaret] = useState({ left: 0, top: 0, height: 0, width: 0 })
   const [offset, setOffset] = useState(0)
-  const lineHeight = size === 'lg' ? 52 : 40
+  const [fontTick, setFontTick] = useState(0)
+  const metrics = size === 'lg' ? TYPE_SIZES[appearance.size] : { fontSize: '1.25rem', lineHeight: 40 }
+  const lineHeight = metrics.lineHeight
 
   const caretIndex = typed.length
+
+  // web fonts load asynchronously — re-measure once they arrive
+  useEffect(() => {
+    if (!document.fonts) return
+    const bump = () => setFontTick((n) => n + 1)
+    document.fonts.addEventListener('loadingdone', bump)
+    return () => document.fonts.removeEventListener('loadingdone', bump)
+  }, [])
 
   useLayoutEffect(() => {
     const el = refs.current[caretIndex] ?? null
@@ -88,32 +100,48 @@ export function TextView({
     let left = 0
     let top = 0
     let height = lineHeight * 0.62
+    let width = 12
     if (el) {
       left = el.offsetLeft
       top = el.offsetTop
       height = el.offsetHeight
+      width = el.offsetWidth
     } else if (prev) {
       left = prev.offsetLeft + prev.offsetWidth
       top = prev.offsetTop
       height = prev.offsetHeight
+      width = prev.offsetWidth
     }
-    setCaret({ left, top, height })
+    setCaret({ left, top, height, width })
     const lineNo = Math.round(top / lineHeight)
     setOffset(Math.max(0, lineNo - 1) * lineHeight)
-  }, [caretIndex, target, lineHeight])
+  }, [caretIndex, target, lineHeight, appearance.font, fontTick])
 
   const setters = useMemo(
     () => Array.from({ length: target.length }, (_, i) => (el: HTMLSpanElement | null) => (refs.current[i] = el)),
     [target],
   )
 
+  let caretStyle: CSSProperties
+  let caretClass = 'bg-accent'
+  if (appearance.caret === 'block') {
+    caretStyle = { left: caret.left, top: caret.top + caret.height * 0.14, height: caret.height * 0.72, width: caret.width }
+    caretClass = 'bg-accent/30 rounded-[3px]'
+  } else if (appearance.caret === 'underline') {
+    caretStyle = { left: caret.left, top: caret.top + caret.height * 0.84, height: 3, width: caret.width }
+    caretClass = 'bg-accent rounded-full'
+  } else {
+    caretStyle = { left: caret.left - 1, top: caret.top + caret.height * 0.18, height: caret.height * 0.64, width: 3 }
+    caretClass = 'bg-accent rounded-full'
+  }
+  const caretMotion = appearance.smoothCaret ? 'transition-[left,top,width] duration-100 ease-out' : ''
+
   return (
     <div
-      className={`relative overflow-hidden font-mono ${size === 'lg' ? 'text-[1.6rem] sm:text-[1.85rem]' : 'text-xl'} ${className}`}
-      style={{ height: lineHeight * lines }}
+      className={`relative overflow-hidden ${className}`}
+      style={{ height: lineHeight * lines, fontFamily: 'var(--kf-type-font)', fontSize: metrics.fontSize }}
     >
       <div
-        ref={innerRef}
         className="relative flex flex-wrap transition-transform duration-200 ease-out"
         style={{ transform: `translateY(${-offset}px)`, lineHeight: `${lineHeight}px` }}
       >
@@ -139,8 +167,8 @@ export function TextView({
         ))}
         <span
           aria-hidden
-          className={`pointer-events-none absolute w-[3px] rounded-full bg-accent transition-[left,top] duration-100 ease-out ${idle ? 'caret-idle' : ''}`}
-          style={{ left: caret.left - 1, top: caret.top + caret.height * 0.18, height: caret.height * 0.64 }}
+          className={`pointer-events-none absolute ${caretClass} ${caretMotion} ${idle ? 'caret-idle' : ''}`}
+          style={caretStyle}
         />
       </div>
     </div>

@@ -1,36 +1,21 @@
-import { History, Keyboard as KeyboardIcon, Moon, Sun, X } from 'lucide-react'
+import { ChevronDown, Globe, History, Palette, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { AppearancePanel } from './components/AppearancePanel'
 import { HistoryPanel } from './components/HistoryPanel'
 import { ResultsView } from './components/results/ResultsView'
 import { SettingsBar } from './components/SettingsBar'
 import { TypingScreen } from './components/TypingScreen'
 import { IconButton, Segmented } from './components/ui'
 import { LANGUAGE_BY_ID } from './data/languages'
+import { AppearanceContext } from './hooks/useAppearance'
 import { useTypingTest } from './hooks/useTypingTest'
+import { UI_LANGUAGES, type UiLanguage } from './i18n'
+import { applyAppearance, loadAppearance, resolveDark, saveAppearance, type Appearance } from './lib/appearance'
+import { modeKey, modeLabel } from './lib/modeLabel'
 import { analyze } from './lib/stats'
 import { clearHistory, loadHistory, loadSettings, pushHistory, recordLetters, saveSettings, weakLetters, type HistoryEntry } from './lib/storage'
 import type { Settings, TestRun } from './lib/types'
-
-const LESSON_NAMES: Record<Settings['lesson'], string> = {
-  home: 'основной ряд',
-  top: 'верхний ряд',
-  bottom: 'нижний ряд',
-  all: 'все буквы',
-  weak: 'мои ошибки',
-}
-
-function modeLabel(s: Settings) {
-  switch (s.mode) {
-    case 'time':
-      return `Время, ${s.time < 60 ? `${s.time} с` : `${s.time / 60} мин`}`
-    case 'words':
-      return `${s.words} слов`
-    case 'text':
-      return 'Текст'
-    case 'lesson':
-      return `Урок: ${LESSON_NAMES[s.lesson]}`
-  }
-}
 
 function Logo() {
   return (
@@ -47,17 +32,38 @@ function Logo() {
   )
 }
 
+function useSystemDark() {
+  const [dark, setDark] = useState(() => matchMedia('(prefers-color-scheme: dark)').matches)
+  useEffect(() => {
+    const mq = matchMedia('(prefers-color-scheme: dark)')
+    const on = () => setDark(mq.matches)
+    mq.addEventListener('change', on)
+    return () => mq.removeEventListener('change', on)
+  }, [])
+  return dark
+}
+
 export default function App() {
+  const { t, i18n } = useTranslation()
   const [settings, setSettings] = useState<Settings>(loadSettings)
+  const [appearance, setAppearance] = useState<Appearance>(loadAppearance)
   const [run, setRun] = useState<TestRun | null>(null)
   const [isRecord, setIsRecord] = useState(false)
   const [history, setHistory] = useState<HistoryEntry[]>(loadHistory)
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [appearanceOpen, setAppearanceOpen] = useState(false)
+  const systemDark = useSystemDark()
+  const dark = appearance.mode === 'system' ? systemDark : resolveDark(appearance)
+  const overlayOpen = historyOpen || appearanceOpen
 
   useEffect(() => {
     saveSettings(settings)
-    document.documentElement.dataset.theme = settings.theme
   }, [settings])
+
+  useEffect(() => {
+    saveAppearance(appearance)
+    applyAppearance(appearance)
+  }, [appearance, systemDark])
 
   // history changes whenever new letter stats are recorded
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -68,21 +74,25 @@ export default function App() {
     setSettings((s) => ({ ...s, ...patch }))
   }, [])
 
+  const updateAppearance = useCallback((patch: Partial<Appearance>) => setAppearance((a) => ({ ...a, ...patch })), [])
+
   const onFinish = useCallback((r: TestRun) => {
     const a = analyze(r)
-    const label = modeLabel(r.settings)
-    const prev = loadHistory().filter((h) => h.language === r.settings.language && h.modeLabel === label)
+    const key = modeKey(r.settings)
+    const prev = loadHistory().filter((h) => h.language === r.settings.language && h.modeKey === key)
     const prevBest = prev.reduce((m, h) => Math.max(m, h.cpm), 0)
     setIsRecord(prev.length > 0 && a.cpm > prevBest && a.keystrokes >= 10)
     if (a.keystrokes >= 5) {
       recordLetters(r.settings.language, a)
+      const { mode, time, words, lesson, difficulty } = r.settings
       setHistory(
         pushHistory({
           id: r.id,
           date: r.date,
           language: r.settings.language,
-          mode: r.settings.mode,
-          modeLabel: label,
+          mode,
+          modeKey: key,
+          params: { mode, time, words, lesson, difficulty },
           cpm: a.cpm,
           wpm: a.wpm,
           accuracy: a.accuracy,
@@ -106,123 +116,138 @@ export default function App() {
     setRun(null)
   }, [test])
 
+  // Escape closes whichever overlay is open, before the typing screen sees it
   useEffect(() => {
-    if (!historyOpen) return
+    if (!overlayOpen) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault()
         e.stopImmediatePropagation()
         setHistoryOpen(false)
+        setAppearanceOpen(false)
       }
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [historyOpen])
+  }, [overlayOpen])
 
   const lang = LANGUAGE_BY_ID[settings.language]
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-6xl flex-col px-4 sm:px-6">
-      <header className="flex items-center justify-between gap-3 py-5">
-        <button type="button" onClick={next} className="rounded-xl" aria-label="KeyFlow — новый тест">
-          <Logo />
-        </button>
-        <div className="flex items-center gap-1">
-          <div className="mr-1 hidden sm:block">
-            <Segmented
-              label="Единицы скорости"
-              value={settings.unit}
-              onChange={(u) => setSettings((s) => ({ ...s, unit: u }))}
-              options={[
-                { value: 'cpm', label: 'зн/мин', title: 'Знаков в минуту' },
-                { value: 'wpm', label: 'сл/мин', title: 'Слов в минуту (слово = 5 знаков)' },
-              ]}
-            />
-          </div>
-          <IconButton
-            title={settings.showKeyboard ? 'Скрыть клавиатуру' : 'Показать клавиатуру'}
-            onClick={() => setSettings((s) => ({ ...s, showKeyboard: !s.showKeyboard }))}
-            className={settings.showKeyboard ? 'text-accent' : ''}
-          >
-            <KeyboardIcon className="size-5" />
-          </IconButton>
-          <IconButton title="История результатов" onClick={() => setHistoryOpen(true)}>
-            <History className="size-5" />
-          </IconButton>
-          <IconButton
-            title={settings.theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
-            onClick={() => setSettings((s) => ({ ...s, theme: s.theme === 'dark' ? 'light' : 'dark' }))}
-          >
-            {settings.theme === 'dark' ? <Sun className="size-5" /> : <Moon className="size-5" />}
-          </IconButton>
-        </div>
-      </header>
-
-      <main className="flex-1 pb-12">
-        {run && analysis ? (
-          <ResultsView
-            run={run}
-            analysis={analysis}
-            modeLabel={`${lang.name}, ${modeLabel(run.settings).toLowerCase()}`}
-            isRecord={isRecord}
-            history={history}
-            paused={historyOpen}
-            onNext={next}
-            onRetry={retry}
-            onDrill={
-              hasWeak
-                ? () => update({ mode: 'lesson', lesson: 'weak' })
-                : undefined
-            }
-            onClearHistory={() => {
-              clearHistory()
-              setHistory([])
-            }}
-          />
-        ) : (
-          <div className="flex flex-col gap-8 pt-2 sm:pt-6">
-            <SettingsBar settings={settings} update={update} hasWeakLetters={hasWeak} />
-            <TypingScreen settings={settings} test={test} paused={historyOpen} />
-          </div>
-        )}
-      </main>
-
-      <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-line py-5 text-xs text-muted">
-        <span>KeyFlow — тренажёр слепой печати</span>
-        <span>Результаты хранятся только в этом браузере</span>
-      </footer>
-
-      {historyOpen && (
-        <div
-          className="fixed inset-0 z-50 grid place-items-center bg-ink/40 p-4 backdrop-blur-sm"
-          onClick={() => setHistoryOpen(false)}
-          role="presentation"
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="История результатов"
-            className="max-h-[85dvh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-surface p-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">История результатов</h2>
-              <IconButton title="Закрыть" onClick={() => setHistoryOpen(false)}>
-                <X className="size-5" />
-              </IconButton>
+    <AppearanceContext.Provider value={appearance}>
+      <div className="mx-auto flex min-h-dvh max-w-6xl flex-col px-4 sm:px-6">
+        <header className="flex items-center justify-between gap-3 py-5">
+          <button type="button" onClick={next} className="rounded-xl" aria-label={t('app.newTest')}>
+            <Logo />
+          </button>
+          <div className="flex items-center gap-1">
+            <div className="mr-1">
+              <Segmented
+                label={t('header.unitGroup')}
+                value={settings.unit}
+                onChange={(u) => setSettings((s) => ({ ...s, unit: u }))}
+                options={[
+                  { value: 'cpm', label: t('units.cpm'), title: t('units.cpmTitle') },
+                  { value: 'wpm', label: t('units.wpm'), title: t('units.wpmTitle') },
+                ]}
+              />
             </div>
-            <HistoryPanel
+            <label className="relative flex h-10 items-center gap-1.5 rounded-xl pr-7 pl-2.5 text-sm font-medium text-muted transition-colors hover:bg-sunken hover:text-ink">
+              <Globe className="size-4" />
+              <span className="sr-only">{t('header.uiLanguage')}</span>
+              <select
+                value={i18n.language}
+                onChange={(e) => void i18n.changeLanguage(e.target.value as UiLanguage)}
+                className="cursor-pointer appearance-none bg-transparent outline-none"
+                title={t('header.uiLanguage')}
+              >
+                {UI_LANGUAGES.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2 size-3.5" />
+            </label>
+            <IconButton title={t('header.history')} onClick={() => setHistoryOpen(true)}>
+              <History className="size-5" />
+            </IconButton>
+            <IconButton title={t('header.appearance')} onClick={() => setAppearanceOpen(true)} className={appearanceOpen ? 'bg-sunken text-ink' : ''}>
+              <Palette className="size-5" />
+            </IconButton>
+          </div>
+        </header>
+
+        <main className="flex-1 pb-12">
+          {run && analysis ? (
+            <ResultsView
+              run={run}
+              analysis={analysis}
+              modeLabel={`${lang.name}, ${modeLabel(run.settings).toLocaleLowerCase()}`}
+              isRecord={isRecord}
               history={history}
-              unit={settings.unit}
-              limit={30}
-              onClear={() => {
+              paused={overlayOpen}
+              onNext={next}
+              onRetry={retry}
+              onDrill={hasWeak ? () => update({ mode: 'lesson', lesson: 'weak' }) : undefined}
+              onClearHistory={() => {
                 clearHistory()
                 setHistory([])
               }}
             />
+          ) : (
+            <div className="flex flex-col gap-8 pt-2 sm:pt-4">
+              <SettingsBar settings={settings} update={update} hasWeakLetters={hasWeak} />
+              <TypingScreen settings={settings} test={test} paused={overlayOpen} />
+            </div>
+          )}
+        </main>
+
+        <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-line py-5 text-xs text-muted">
+          <span>{t('app.tagline')}</span>
+          <span>{t('app.storedLocally')}</span>
+        </footer>
+
+        {historyOpen && (
+          <div className="fixed inset-0 z-50 grid place-items-center bg-ink/40 p-4 backdrop-blur-sm" onClick={() => setHistoryOpen(false)} role="presentation">
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label={t('history.fullTitle')}
+              className="max-h-[85dvh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-surface p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-semibold">{t('history.fullTitle')}</h2>
+                <IconButton title={t('app.close')} onClick={() => setHistoryOpen(false)}>
+                  <X className="size-5" />
+                </IconButton>
+              </div>
+              <HistoryPanel
+                history={history}
+                unit={settings.unit}
+                limit={30}
+                onClear={() => {
+                  clearHistory()
+                  setHistory([])
+                }}
+              />
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+
+        {appearanceOpen && (
+          <AppearancePanel
+            appearance={appearance}
+            dark={dark}
+            onChange={updateAppearance}
+            showKeyboard={settings.showKeyboard}
+            onShowKeyboard={(v) => setSettings((s) => ({ ...s, showKeyboard: v }))}
+            language={settings.language}
+            onClose={() => setAppearanceOpen(false)}
+          />
+        )}
+      </div>
+    </AppearanceContext.Provider>
   )
 }
